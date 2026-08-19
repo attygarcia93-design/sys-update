@@ -152,66 +152,6 @@
             border-top: 1px solid #e0e0e0;
         }
 
-        .username-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-        }
-
-        .username-box {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-            width: 90%;
-            max-width: 350px;
-        }
-
-        .username-box h2 {
-            color: #333;
-            margin-bottom: 20px;
-        }
-
-        .username-box input {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid #ddd;
-            border-radius: 10px;
-            font-size: 1rem;
-            margin-bottom: 15px;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-
-        .username-box input:focus {
-            border-color: #667eea;
-        }
-
-        .username-box button {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .username-box button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
-        }
-
         .chat-messages {
             flex: 1;
             overflow-y: auto;
@@ -480,14 +420,6 @@
         </div>
     </div>
 
-    <div class="username-modal" id="usernameModal">
-        <div class="username-box">
-            <h2>Enter Device ID</h2>
-            <input type="text" id="usernameInput" placeholder="Enter your device ID..." maxlength="20">
-            <button onclick="setUsername()">Connect</button>
-        </div>
-    </div>
-
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io({
@@ -495,61 +427,46 @@
             reconnectionDelay: 1000,
             reconnectionAttempts: Infinity
         });
-        let username = '';
+
+        function generateId() {
+            return 'User-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        }
+        let username = generateId();
 
         const messages = document.getElementById('messages');
         const messageInput = document.getElementById('messageInput');
-        const usernameModal = document.getElementById('usernameModal');
-        const usernameInput = document.getElementById('usernameInput');
         const userList = document.getElementById('userList');
         const onlineCount = document.getElementById('onlineCount');
         const sidebar = document.getElementById('sidebar');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
         const userBadge = document.getElementById('userBadge');
 
-        let heartbeatInterval = setInterval(() => {
-            if (socket.connected) {
-                socket.emit('heartbeat');
-            }
+        setInterval(() => {
+            if (socket.connected) socket.emit('heartbeat');
         }, 20000);
 
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && username) {
                 socket.emit('heartbeat');
-                if (!socket.connected) {
-                    socket.connect();
-                }
+                if (!socket.connected) socket.connect();
             }
         });
 
         window.addEventListener('focus', () => {
-            if (username && !socket.connected) {
-                socket.connect();
-            }
+            if (username && !socket.connected) socket.connect();
         });
 
         socket.on('connect', () => {
-            if (username) {
-                socket.emit('set username', username);
-            }
+            socket.emit('set username', username);
         });
 
-        socket.on('disconnect', () => {
-            console.log('Disconnected from server');
-        });
-
-        socket.on('username taken', (takenName) => {
-            username = '';
-            usernameModal.classList.remove('hidden');
-            usernameInput.value = '';
-            usernameInput.placeholder = `"${takenName}" is already taken. Try another...`;
-            usernameInput.focus();
+        socket.on('username taken', () => {
+            username = generateId();
+            socket.emit('set username', username);
         });
 
         socket.on('username ok', () => {
-            usernameModal.classList.add('hidden');
             messageInput.focus();
-            addSystemMessage(`Device ${username} connected`);
         });
 
         function toggleSidebar() {
@@ -557,21 +474,9 @@
             sidebarOverlay.classList.toggle('active');
         }
 
-        usernameInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') setUsername();
-        });
-
         messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
         });
-
-        function setUsername() {
-            const name = usernameInput.value.trim();
-            if (name) {
-                username = name;
-                socket.emit('set username', username);
-            }
-        }
 
         function sendMessage() {
             const text = messageInput.value.trim();
@@ -646,21 +551,11 @@
             userBadge.textContent = users.length;
         });
 
-        function addSystemMessage(text) {
-            const div = document.createElement('div');
-            div.className = 'system-message';
-            div.textContent = text;
-            messages.appendChild(div);
-            scrollToBottom();
-        }
-
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
-
-        usernameInput.focus();
     </script>
 </body>
 </html>
