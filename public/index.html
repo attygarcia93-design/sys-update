@@ -475,7 +475,11 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();
+        const socket = io({
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: Infinity
+        });
         let username = '';
 
         const messages = document.getElementById('messages');
@@ -487,6 +491,43 @@
         const sidebar = document.getElementById('sidebar');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
         const userBadge = document.getElementById('userBadge');
+
+        let heartbeatInterval = setInterval(() => {
+            if (socket.connected) {
+                socket.emit('heartbeat');
+            }
+        }, 20000);
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && username) {
+                socket.emit('heartbeat');
+                if (!socket.connected) {
+                    socket.connect();
+                }
+            }
+        });
+
+        window.addEventListener('focus', () => {
+            if (username && !socket.connected) {
+                socket.connect();
+            }
+        });
+
+        socket.on('connect', () => {
+            if (username) {
+                socket.emit('set username', username);
+            }
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+        });
+
+        socket.on('reconnect', () => {
+            if (username) {
+                socket.emit('set username', username);
+            }
+        });
 
         function toggleSidebar() {
             sidebar.classList.toggle('open');
@@ -525,6 +566,12 @@
             }
         }
 
+        function scrollToBottom() {
+            requestAnimationFrame(() => {
+                messages.scrollTop = messages.scrollHeight;
+            });
+        }
+
         socket.on('chat message', (data) => {
             const isSent = data.username === username;
             const div = document.createElement('div');
@@ -535,7 +582,7 @@
                 <div class="time">${data.time}</div>
             `;
             messages.appendChild(div);
-            messages.scrollTop = messages.scrollHeight;
+            scrollToBottom();
         });
 
         socket.on('user list', (users) => {
@@ -558,7 +605,7 @@
             div.className = 'system-message';
             div.textContent = text;
             messages.appendChild(div);
-            messages.scrollTop = messages.scrollHeight;
+            scrollToBottom();
         }
 
         function escapeHtml(text) {
