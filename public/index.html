@@ -215,10 +215,13 @@
         .chat-messages {
             flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
             padding: 15px;
             display: flex;
             flex-direction: column;
             gap: 10px;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
         }
 
         .message {
@@ -589,7 +592,10 @@
 
         function scrollToBottom() {
             requestAnimationFrame(() => {
-                messages.scrollTop = messages.scrollHeight;
+                const isNearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 150;
+                if (isNearBottom || messages.scrollTop === 0) {
+                    messages.scrollTop = messages.scrollHeight;
+                }
             });
         }
 
