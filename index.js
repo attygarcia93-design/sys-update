@@ -14,9 +14,23 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const users = new Map();
 const disconnectTimers = new Map();
+const messages = [];
+const MESSAGE_TTL = 5 * 60 * 1000;
+
+function cleanOldMessages() {
+    const cutoff = Date.now() - MESSAGE_TTL;
+    while (messages.length > 0 && messages[0].timestamp < cutoff) {
+        messages.shift();
+    }
+}
+
+setInterval(cleanOldMessages, 30000);
 
 io.on('connection', (socket) => {
     console.log('Socket connected:', socket.id);
+
+    cleanOldMessages();
+    socket.emit('message history', messages);
 
     socket.on('set username', (username) => {
         if (users.has(socket.id)) {
@@ -45,7 +59,14 @@ io.on('connection', (socket) => {
     });
 
     socket.on('chat message', (data) => {
+        const msgData = { ...data, timestamp: Date.now() };
+        messages.push(msgData);
         io.emit('chat message', data);
+    });
+
+    socket.on('clear messages', () => {
+        messages.length = 0;
+        io.emit('clear messages');
     });
 
     socket.on('heartbeat', () => {

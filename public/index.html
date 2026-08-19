@@ -316,6 +316,17 @@
             box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
         }
 
+        .clear-btn {
+            background: #ff4757 !important;
+            padding: 12px 12px !important;
+            font-size: 0.8rem !important;
+        }
+
+        .clear-btn:hover {
+            background: #ff3344 !important;
+            box-shadow: 0 5px 20px rgba(255, 71, 87, 0.4) !important;
+        }
+
         .system-message {
             text-align: center;
             color: #888;
@@ -449,6 +460,7 @@
             <div class="chat-messages" id="messages"></div>
 
             <div class="chat-input">
+                <button class="clear-btn" onclick="clearMessages()">Clear</button>
                 <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
                 <button onclick="sendMessage()">Send</button>
             </div>
@@ -571,6 +583,10 @@
             }
         }
 
+        function clearMessages() {
+            socket.emit('clear messages');
+        }
+
         function scrollToBottom() {
             requestAnimationFrame(() => {
                 messages.scrollTop = messages.scrollHeight;
@@ -588,6 +604,25 @@
             `;
             messages.appendChild(div);
             scrollToBottom();
+        });
+
+        socket.on('message history', (history) => {
+            history.forEach(data => {
+                const isSent = data.username === username;
+                const div = document.createElement('div');
+                div.className = `message ${isSent ? 'sent' : 'received'}`;
+                div.innerHTML = `
+                    <div class="sender">${escapeHtml(data.username)}</div>
+                    <div class="text">${escapeHtml(data.text)}</div>
+                    <div class="time">${data.time}</div>
+                `;
+                messages.appendChild(div);
+            });
+            scrollToBottom();
+        });
+
+        socket.on('clear messages', () => {
+            messages.innerHTML = '';
         });
 
         socket.on('user list', (users) => {
