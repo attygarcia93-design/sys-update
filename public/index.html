@@ -38,6 +38,8 @@
             display: flex;
             flex-direction: column;
             min-width: 0;
+            min-height: 0;
+            overflow: hidden;
         }
 
         .chat-header {
@@ -154,12 +156,10 @@
 
         .chat-messages {
             flex: 1;
-            overflow-y: auto;
+            overflow-y: scroll;
             overflow-x: hidden;
             padding: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+            min-height: 0;
             scroll-behavior: smooth;
             -webkit-overflow-scrolling: touch;
         }
@@ -170,6 +170,15 @@
             border-radius: 18px;
             word-wrap: break-word;
             animation: fadeIn 0.3s ease;
+            margin-bottom: 10px;
+        }
+
+        .message.sent {
+            margin-left: auto;
+        }
+
+        .message.received {
+            margin-right: auto;
         }
 
         @keyframes fadeIn {
@@ -178,14 +187,12 @@
         }
 
         .message.sent {
-            align-self: flex-end;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border-bottom-right-radius: 5px;
         }
 
         .message.received {
-            align-self: flex-start;
             background: #f0f0f0;
             color: #333;
             border-bottom-left-radius: 5px;
@@ -224,6 +231,9 @@
             display: flex;
             gap: 8px;
             flex-shrink: 0;
+            position: relative;
+            z-index: 1;
+            border-top: 1px solid #e0e0e0;
         }
 
         .chat-input input {
@@ -532,6 +542,7 @@
         });
 
         socket.on('message history', (history) => {
+            messages.innerHTML = '';
             history.forEach(data => {
                 const isSent = data.username === username;
                 const div = document.createElement('div');
