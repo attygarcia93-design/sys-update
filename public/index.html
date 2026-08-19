@@ -523,12 +523,6 @@
             console.log('Disconnected from server');
         });
 
-        socket.on('reconnect', () => {
-            if (username) {
-                socket.emit('set username', username);
-            }
-        });
-
         socket.on('username taken', (takenName) => {
             username = '';
             usernameModal.classList.remove('hidden');

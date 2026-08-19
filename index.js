@@ -19,6 +19,10 @@ io.on('connection', (socket) => {
     console.log('Socket connected:', socket.id);
 
     socket.on('set username', (username) => {
+        if (users.has(socket.id)) {
+            socket.emit('username ok', username);
+            return;
+        }
         const existingUsers = Array.from(users.values());
         if (existingUsers.includes(username)) {
             socket.emit('username taken', username);
