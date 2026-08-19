@@ -12,9 +12,8 @@ const io = new Server(server, {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-const users = new Map();
+const onlineUsers = new Map();
 const sessions = new Map();
-const disconnectTimers = new Map();
 const messages = [];
 const MESSAGE_TTL = 5 * 60 * 1000;
 const SESSION_TTL = 10 * 60 * 1000;
@@ -31,12 +30,28 @@ function cleanOldSessions() {
     for (const [id, session] of sessions) {
         if (session.lastSeen < cutoff) {
             sessions.delete(id);
+            for (const [sid, data] of onlineUsers) {
+                if (data.sessionId === id) {
+                    onlineUsers.delete(sid);
+                }
+            }
         }
     }
 }
 
-setInterval(cleanOldMessages, 30000);
-setInterval(cleanOldSessions, 30000);
+function broadcastUserList() {
+    const names = [];
+    const seen = new Set();
+    for (const [, data] of onlineUsers) {
+        if (!seen.has(data.username)) {
+            seen.add(data.username);
+            names.push(data.username);
+        }
+    }
+    io.emit('user list', names);
+}
+
+setInterval(() => { cleanOldMessages(); cleanOldSessions(); broadcastUserList(); }, 30000);
 
 io.on('connection', (socket) => {
     console.log('Socket connected:', socket.id);
@@ -47,55 +62,50 @@ io.on('connection', (socket) => {
     socket.on('check session', (sessionId) => {
         const session = sessions.get(sessionId);
         if (session && (Date.now() - session.lastSeen < SESSION_TTL)) {
-            if (disconnectTimers.has(session.username)) {
-                clearTimeout(disconnectTimers.get(session.username));
-                disconnectTimers.delete(session.username);
-            }
-            for (const [sid, name] of users.entries()) {
-                if (name === session.username && sid !== socket.id) {
-                    users.delete(sid);
-                    sessions.delete(sid);
+            for (const [sid, data] of onlineUsers) {
+                if (data.sessionId === sessionId && sid !== socket.id) {
+                    const oldSocket = io.sockets.sockets.get(sid);
+                    if (oldSocket) oldSocket.disconnect(true);
+                    onlineUsers.delete(sid);
                     break;
                 }
             }
             session.lastSeen = Date.now();
-            users.set(socket.id, session.username);
-            sessions.set(socket.id, { username: session.username, lastSeen: Date.now() });
+            onlineUsers.set(socket.id, { username: session.username, sessionId });
             socket.emit('session ok', session.username);
-            io.emit('user list', Array.from(users.values()));
-            console.log(`${session.username} reconnected via session`);
+            broadcastUserList();
+            console.log(`${session.username} reconnected`);
         } else {
             sessions.delete(sessionId);
+            for (const [sid, data] of onlineUsers) {
+                if (data.sessionId === sessionId) {
+                    onlineUsers.delete(sid);
+                    break;
+                }
+            }
             socket.emit('session expired');
         }
     });
 
     socket.on('set username', (username) => {
-        if (users.has(socket.id)) {
-            socket.emit('username ok', username);
-            return;
-        }
-        for (const [sid, name] of users.entries()) {
-            if (name === username && sid !== socket.id) {
-                users.delete(sid);
-                sessions.delete(sid);
+        for (const [sid, data] of onlineUsers) {
+            if (data.username === username && sid !== socket.id) {
+                const oldSocket = io.sockets.sockets.get(sid);
+                if (oldSocket) oldSocket.disconnect(true);
+                onlineUsers.delete(sid);
                 break;
             }
         }
-        if (disconnectTimers.has(username)) {
-            clearTimeout(disconnectTimers.get(username));
-            disconnectTimers.delete(username);
-        }
-        users.set(socket.id, username);
-        sessions.set(socket.id, { username, lastSeen: Date.now() });
+        const sessionId = socket.id;
+        sessions.set(sessionId, { username, lastSeen: Date.now() });
+        onlineUsers.set(socket.id, { username, sessionId });
         socket.emit('username ok', username);
-        io.emit('user list', Array.from(users.values()));
+        broadcastUserList();
         console.log(`${username} connected`);
     });
 
     socket.on('chat message', (data) => {
-        const msgData = { ...data, timestamp: Date.now() };
-        messages.push(msgData);
+        messages.push({ ...data, timestamp: Date.now() });
         io.emit('chat message', data);
     });
 
@@ -105,35 +115,18 @@ io.on('connection', (socket) => {
     });
 
     socket.on('heartbeat', () => {
-        const username = users.get(socket.id);
-        if (username) {
-            if (sessions.has(socket.id)) {
-                sessions.get(socket.id).lastSeen = Date.now();
-            }
-            if (disconnectTimers.has(username)) {
-                clearTimeout(disconnectTimers.get(username));
-                disconnectTimers.delete(username);
-            }
+        const data = onlineUsers.get(socket.id);
+        if (data && sessions.has(data.sessionId)) {
+            sessions.get(data.sessionId).lastSeen = Date.now();
         }
     });
 
     socket.on('disconnect', () => {
-        const username = users.get(socket.id);
-        if (username) {
-            console.log(`${username} disconnected, waiting 15s...`);
-            const timer = setTimeout(() => {
-                for (const [sid, name] of users.entries()) {
-                    if (name === username) {
-                        users.delete(sid);
-                        sessions.delete(sid);
-                        break;
-                    }
-                }
-                disconnectTimers.delete(username);
-                io.emit('user list', Array.from(users.values()));
-                console.log(`${username} removed from online list`);
-            }, 15000);
-            disconnectTimers.set(username, timer);
+        const data = onlineUsers.get(socket.id);
+        if (data) {
+            console.log(`${data.username} disconnected`);
+            onlineUsers.delete(socket.id);
+            broadcastUserList();
         }
     });
 });
