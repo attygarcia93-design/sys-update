@@ -2,7 +2,7 @@
 <html lang="tl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>System Update</title>
     <style>
         * {
@@ -15,6 +15,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             height: 100vh;
+            height: 100dvh;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -29,30 +30,68 @@
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             display: flex;
             overflow: hidden;
+            position: relative;
         }
 
         .chat-main {
             flex: 1;
             display: flex;
             flex-direction: column;
+            min-width: 0;
         }
 
         .chat-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px;
+            padding: 15px 20px;
             text-align: center;
+            position: relative;
+            flex-shrink: 0;
         }
 
         .chat-header h1 {
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             font-weight: 600;
         }
 
         .chat-header p {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             opacity: 0.9;
-            margin-top: 5px;
+            margin-top: 3px;
+        }
+
+        .users-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 1rem;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .users-toggle .badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: #4CAF50;
+            color: white;
+            font-size: 0.65rem;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
         }
 
         .sidebar {
@@ -61,6 +100,7 @@
             border-left: 1px solid #e0e0e0;
             display: flex;
             flex-direction: column;
+            flex-shrink: 0;
         }
 
         .sidebar-header {
@@ -175,7 +215,7 @@
         .chat-messages {
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
+            padding: 15px;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -183,7 +223,7 @@
 
         .message {
             max-width: 80%;
-            padding: 12px 16px;
+            padding: 10px 14px;
             border-radius: 18px;
             word-wrap: break-word;
             animation: fadeIn 0.3s ease;
@@ -209,9 +249,9 @@
         }
 
         .message .sender {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 600;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
             opacity: 0.8;
         }
 
@@ -224,32 +264,34 @@
         }
 
         .message .text {
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             line-height: 1.4;
         }
 
         .message .time {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             opacity: 0.7;
-            margin-top: 4px;
+            margin-top: 3px;
             text-align: right;
         }
 
         .chat-input {
-            padding: 15px 20px;
+            padding: 10px 15px;
             background: #f8f9fa;
             display: flex;
-            gap: 10px;
+            gap: 8px;
+            flex-shrink: 0;
         }
 
         .chat-input input {
             flex: 1;
-            padding: 15px 20px;
+            padding: 12px 16px;
             border: 2px solid #e0e0e0;
             border-radius: 25px;
-            font-size: 1rem;
+            font-size: 0.9rem;
             outline: none;
             transition: border-color 0.3s;
+            min-width: 0;
         }
 
         .chat-input input:focus {
@@ -257,15 +299,16 @@
         }
 
         .chat-input button {
-            padding: 15px 25px;
+            padding: 12px 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
             border-radius: 25px;
-            font-size: 1rem;
+            font-size: 0.9rem;
             font-weight: 600;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
+            flex-shrink: 0;
         }
 
         .chat-input button:hover {
@@ -276,8 +319,8 @@
         .system-message {
             text-align: center;
             color: #888;
-            font-size: 0.85rem;
-            padding: 10px;
+            font-size: 0.8rem;
+            padding: 8px;
             font-style: italic;
         }
 
@@ -286,7 +329,7 @@
         }
 
         ::-webkit-scrollbar {
-            width: 6px;
+            width: 5px;
         }
 
         ::-webkit-scrollbar-track {
@@ -298,18 +341,95 @@
             border-radius: 3px;
         }
 
-        ::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.4);
+            z-index: 50;
         }
 
         @media (max-width: 500px) {
-            .sidebar {
-                display: none;
+            body {
+                align-items: stretch;
             }
+
             .chat-container {
                 max-width: 100%;
                 height: 100vh;
+                height: 100dvh;
                 border-radius: 0;
+                flex-direction: column;
+                position: relative;
+            }
+
+            .chat-header {
+                padding: 12px 15px;
+            }
+
+            .chat-header h1 {
+                font-size: 1.1rem;
+            }
+
+            .users-toggle {
+                display: flex;
+            }
+
+            .sidebar {
+                position: fixed;
+                top: 0;
+                right: -220px;
+                width: 220px;
+                height: 100%;
+                z-index: 60;
+                transition: right 0.3s ease;
+                box-shadow: -5px 0 20px rgba(0,0,0,0.2);
+                border-left: none;
+            }
+
+            .sidebar.open {
+                right: 0;
+            }
+
+            .sidebar-overlay.active {
+                display: block;
+            }
+
+            .sidebar-header {
+                padding: 20px 15px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .sidebar-close {
+                background: rgba(255,255,255,0.2);
+                border: none;
+                color: white;
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                font-size: 1.2rem;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .chat-messages {
+                padding: 10px;
+            }
+
+            .message {
+                max-width: 85%;
+            }
+
+            .chat-input {
+                padding: 8px 10px;
+                padding-bottom: max(8px, env(safe-area-inset-bottom));
             }
         }
     </style>
@@ -320,6 +440,10 @@
             <div class="chat-header">
                 <h1>System Update</h1>
                 <p>Checking for updates...</p>
+                <button class="users-toggle" onclick="toggleSidebar()">
+                    <span class="badge" id="userBadge">0</span>
+                    &#9775;
+                </button>
             </div>
 
             <div class="chat-messages" id="messages"></div>
@@ -330,8 +454,12 @@
             </div>
         </div>
 
-        <div class="sidebar">
-            <div class="sidebar-header">Connected</div>
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <span>Connected</span>
+                <button class="sidebar-close" onclick="toggleSidebar()">&times;</button>
+            </div>
             <div class="sidebar-users" id="userList"></div>
             <div class="online-count" id="onlineCount">0 online</div>
         </div>
@@ -356,6 +484,14 @@
         const usernameInput = document.getElementById('usernameInput');
         const userList = document.getElementById('userList');
         const onlineCount = document.getElementById('onlineCount');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const userBadge = document.getElementById('userBadge');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('open');
+            sidebarOverlay.classList.toggle('active');
+        }
 
         usernameInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') setUsername();
@@ -414,6 +550,7 @@
                 userList.appendChild(div);
             });
             onlineCount.textContent = `${users.length} online`;
+            userBadge.textContent = users.length;
         });
 
         function addSystemMessage(text) {
