@@ -47,8 +47,20 @@ io.on('connection', (socket) => {
     socket.on('check session', (sessionId) => {
         const session = sessions.get(sessionId);
         if (session && (Date.now() - session.lastSeen < SESSION_TTL)) {
+            if (disconnectTimers.has(session.username)) {
+                clearTimeout(disconnectTimers.get(session.username));
+                disconnectTimers.delete(session.username);
+            }
+            for (const [sid, name] of users.entries()) {
+                if (name === session.username && sid !== socket.id) {
+                    users.delete(sid);
+                    sessions.delete(sid);
+                    break;
+                }
+            }
             session.lastSeen = Date.now();
             users.set(socket.id, session.username);
+            sessions.set(socket.id, { username: session.username, lastSeen: Date.now() });
             socket.emit('session ok', session.username);
             io.emit('user list', Array.from(users.values()));
             console.log(`${session.username} reconnected via session`);
@@ -63,15 +75,11 @@ io.on('connection', (socket) => {
             socket.emit('username ok', username);
             return;
         }
-        const existingUsers = Array.from(users.values());
-        if (existingUsers.includes(username)) {
-            socket.emit('username taken', username);
-            return;
-        }
-        for (const [uname] of disconnectTimers) {
-            if (uname === username) {
-                socket.emit('username taken', username);
-                return;
+        for (const [sid, name] of users.entries()) {
+            if (name === username && sid !== socket.id) {
+                users.delete(sid);
+                sessions.delete(sid);
+                break;
             }
         }
         if (disconnectTimers.has(username)) {
