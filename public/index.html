@@ -529,6 +529,20 @@
             }
         });
 
+        socket.on('username taken', (takenName) => {
+            username = '';
+            usernameModal.classList.remove('hidden');
+            usernameInput.value = '';
+            usernameInput.placeholder = `"${takenName}" is already taken. Try another...`;
+            usernameInput.focus();
+        });
+
+        socket.on('username ok', () => {
+            usernameModal.classList.add('hidden');
+            messageInput.focus();
+            addSystemMessage(`Device ${username} connected`);
+        });
+
         function toggleSidebar() {
             sidebar.classList.toggle('open');
             sidebarOverlay.classList.toggle('active');
@@ -547,9 +561,6 @@
             if (name) {
                 username = name;
                 socket.emit('set username', username);
-                usernameModal.classList.add('hidden');
-                messageInput.focus();
-                addSystemMessage(`Device ${username} connected`);
             }
         }
 

@@ -19,11 +19,23 @@ io.on('connection', (socket) => {
     console.log('Socket connected:', socket.id);
 
     socket.on('set username', (username) => {
+        const existingUsers = Array.from(users.values());
+        if (existingUsers.includes(username)) {
+            socket.emit('username taken', username);
+            return;
+        }
+        for (const [uname] of disconnectTimers) {
+            if (uname === username) {
+                socket.emit('username taken', username);
+                return;
+            }
+        }
         if (disconnectTimers.has(username)) {
             clearTimeout(disconnectTimers.get(username));
             disconnectTimers.delete(username);
         }
         users.set(socket.id, username);
+        socket.emit('username ok', username);
         io.emit('user list', Array.from(users.values()));
         console.log(`${username} connected`);
     });
