@@ -13,9 +13,11 @@ const io = new Server(server, {
 app.use(express.static(path.join(__dirname, 'public')));
 
 const users = new Map();
+const sessions = new Map();
 const disconnectTimers = new Map();
 const messages = [];
 const MESSAGE_TTL = 5 * 60 * 1000;
+const SESSION_TTL = 10 * 60 * 1000;
 
 function cleanOldMessages() {
     const cutoff = Date.now() - MESSAGE_TTL;
@@ -24,13 +26,37 @@ function cleanOldMessages() {
     }
 }
 
+function cleanOldSessions() {
+    const cutoff = Date.now() - SESSION_TTL;
+    for (const [id, session] of sessions) {
+        if (session.lastSeen < cutoff) {
+            sessions.delete(id);
+        }
+    }
+}
+
 setInterval(cleanOldMessages, 30000);
+setInterval(cleanOldSessions, 30000);
 
 io.on('connection', (socket) => {
     console.log('Socket connected:', socket.id);
 
     cleanOldMessages();
     socket.emit('message history', messages);
+
+    socket.on('check session', (sessionId) => {
+        const session = sessions.get(sessionId);
+        if (session && (Date.now() - session.lastSeen < SESSION_TTL)) {
+            session.lastSeen = Date.now();
+            users.set(socket.id, session.username);
+            socket.emit('session ok', session.username);
+            io.emit('user list', Array.from(users.values()));
+            console.log(`${session.username} reconnected via session`);
+        } else {
+            sessions.delete(sessionId);
+            socket.emit('session expired');
+        }
+    });
 
     socket.on('set username', (username) => {
         if (users.has(socket.id)) {
@@ -53,6 +79,7 @@ io.on('connection', (socket) => {
             disconnectTimers.delete(username);
         }
         users.set(socket.id, username);
+        sessions.set(socket.id, { username, lastSeen: Date.now() });
         socket.emit('username ok', username);
         io.emit('user list', Array.from(users.values()));
         console.log(`${username} connected`);
@@ -71,9 +98,14 @@ io.on('connection', (socket) => {
 
     socket.on('heartbeat', () => {
         const username = users.get(socket.id);
-        if (username && disconnectTimers.has(username)) {
-            clearTimeout(disconnectTimers.get(username));
-            disconnectTimers.delete(username);
+        if (username) {
+            if (sessions.has(socket.id)) {
+                sessions.get(socket.id).lastSeen = Date.now();
+            }
+            if (disconnectTimers.has(username)) {
+                clearTimeout(disconnectTimers.get(username));
+                disconnectTimers.delete(username);
+            }
         }
     });
 
@@ -85,6 +117,7 @@ io.on('connection', (socket) => {
                 for (const [sid, name] of users.entries()) {
                     if (name === username) {
                         users.delete(sid);
+                        sessions.delete(sid);
                         break;
                     }
                 }

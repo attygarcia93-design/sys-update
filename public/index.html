@@ -431,7 +431,9 @@
         function generateId() {
             return 'User-' + Math.random().toString(36).substring(2, 8).toUpperCase();
         }
-        let username = generateId();
+
+        let username = sessionStorage.getItem('chat_session_id') || generateId();
+        sessionStorage.setItem('chat_session_id', username);
 
         const messages = document.getElementById('messages');
         const messageInput = document.getElementById('messageInput');
@@ -457,11 +459,23 @@
         });
 
         socket.on('connect', () => {
+            socket.emit('check session', username);
+        });
+
+        socket.on('session ok', (name) => {
+            username = name;
+            messageInput.focus();
+        });
+
+        socket.on('session expired', () => {
+            username = generateId();
+            sessionStorage.setItem('chat_session_id', username);
             socket.emit('set username', username);
         });
 
         socket.on('username taken', () => {
             username = generateId();
+            sessionStorage.setItem('chat_session_id', username);
             socket.emit('set username', username);
         });
 
