@@ -9,9 +9,21 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+const users = new Map();
+
 io.on('connection', (socket) => {
+    socket.on('set username', (username) => {
+        users.set(socket.id, username);
+        io.emit('user list', Array.from(users.values()));
+    });
+
     socket.on('chat message', (data) => {
         io.emit('chat message', data);
+    });
+
+    socket.on('disconnect', () => {
+        users.delete(socket.id);
+        io.emit('user list', Array.from(users.values()));
     });
 });
 
