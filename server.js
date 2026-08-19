@@ -16,16 +16,6 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0');
-
-function cleanup() {
-    console.clear();
-    process.stdout.write('\x1B[2J\x1B[0f');
-    process.exit(0);
-}
-
-process.on('SIGINT', cleanup);
-process.on('SIGTERM', cleanup);
-process.on('exit', () => {
-    try { require('child_process').execSync('clear', { stdio: 'inherit' }); } catch(e) {}
+server.listen(PORT, () => {
+    console.log('Server running on port ' + PORT);
 });
